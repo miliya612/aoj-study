@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 var (
@@ -104,14 +103,13 @@ func (p *process) done() bool {
 }
 
 type queue struct {
-	buf []process
-	l   int
-	sync.Mutex
+	buf        [100000]process
+	l, head, c int
 }
 
 func newQueue() *queue {
 	return &queue{
-		buf: make([]process, 0),
+		c: 100000,
 	}
 }
 
@@ -119,30 +117,24 @@ func (q *queue) size() int {
 	return q.l
 }
 
-func (q *queue) get(i int) *process {
-	return &q.buf[i]
+func (q queue) get(i int) *process {
+	return &q.buf[(i+q.head)%q.c]
 }
 
 func (q *queue) set(i int, p process) {
-	q.Lock()
-	q.buf[i] = p
-	q.Unlock()
+	q.buf[(i+q.head)%q.c] = p
 }
 
 func (q *queue) enqueue(p process) {
-	q.Lock()
-	q.buf = append(q.buf, p)
+	q.buf[(q.l+q.head)%q.c] = p
 	q.l++
-	q.Unlock()
 }
 
 func (q *queue) dequeue() process {
-	q.Lock()
-	p := q.get(0)
-	q.buf = q.buf[1:]
+	p := q.buf[(q.head)%q.c]
 	q.l--
-	q.Unlock()
-	return *p
+	q.head++
+	return p
 }
 
 func printRes() {
